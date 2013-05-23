@@ -1,0 +1,36 @@
+From 3b8254d3b911193d1270bed6e941f56479ef5a85 Mon Sep 17 00:00:00 2001
+From: Matt Fischer <matt.fischer@garmin.com>
+Date: Tue, 14 May 2013 17:39:24 -0500
+Subject: [PATCH] Fix unwind info freeing code in DWARF parser
+
+The DWARF code allocates its unwind_info objects out of a
+memory pool.  The code which frees the object therefore calls
+the mempool freeing code.  However, there are cases where the
+free code will be run with an unwind_info that was allocated
+through a different mechanism (e.g. an ARM exidx table entry).
+In these cases, the object should not be freed through the
+mempool code.
+
+To correct this, a check was added to ensure that the unwind_info
+is of the appropriate type before passing the object along to the
+mempool to be freed.
+---
+ src/dwarf/Gparser.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/src/dwarf/Gparser.c b/src/dwarf/Gparser.c
+index 0f9c221..b251e31 100644
+--- a/src/dwarf/Gparser.c
++++ b/src/dwarf/Gparser.c
+@@ -462,7 +462,7 @@ put_unwind_info (struct dwarf_cursor *c, unw_proc_info_t *pi)
+ {
+   if (c->pi_is_dynamic)
+     unwi_put_dynamic_unwind_info (c->as, pi, c->as_arg);
+-  else if (pi->unwind_info)
++  else if (pi->unwind_info && pi->format == UNW_INFO_FORMAT_TABLE)
+     {
+       mempool_free (&dwarf_cie_info_pool, pi->unwind_info);
+       pi->unwind_info = NULL;
+-- 
+1.7.2.5
+
