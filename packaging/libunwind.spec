@@ -19,7 +19,7 @@
 Name:           libunwind
 BuildRequires:  gcc-c++
 BuildRequires:  libtool
-BuildRequires:  pkg-config
+BuildRequires:  pkgconfig
 Url:            http://savannah.nongnu.org/projects/libunwind/
 Summary:        Unwind Library
 License:        MIT
