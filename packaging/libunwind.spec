@@ -36,7 +36,7 @@ Patch2:		dwarf_memleak.patch
 Patch3:		fix_symlink.patch
 Patch4:		fix_builderror.patch
 Patch5:		fix_unwindinfo_free.patch
-
+Patch6:		disable_UNW_ARM_METHOD_FRAME.patch
 
 %description
 A portable and efficient C programming interface (API) to determine the
@@ -72,6 +72,7 @@ Authors:
 %patch3 -p1
 %patch4 -p1
 %patch5 -p1
+%patch6 -p1
 
 %build
 autoreconf -fi
