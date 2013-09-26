@@ -94,6 +94,10 @@ ln -sf /%{_lib}/libunwind.so.8 $RPM_BUILD_ROOT%{_libdir}/libunwind.so
 # Check that ln did not create a dangling link
 stat "%buildroot"/$(readlink -f "%buildroot/%_libdir/libunwind.so");
 
+mkdir -p %{buildroot}/usr/share/license
+cp COPYING %{buildroot}/usr/share/license/%{name}
+cat LICENSE >> %{buildroot}/usr/share/license/%{name}
+
 %post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
@@ -103,6 +107,7 @@ stat "%buildroot"/$(readlink -f "%buildroot/%_libdir/libunwind.so");
 /%_lib/lib*
 %{_libdir}/lib*.so.*
 %{_libdir}/libunwind.so
+/usr/share/license/%{name}
 
 %files devel
 %defattr(-, root, root)
