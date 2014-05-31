@@ -1,0 +1,36 @@
+From 8028a537dd936d02204605065eaabf52be148294 Mon Sep 17 00:00:00 2001
+From: dave lerner <dlerner@windriver.com>
+Date: Thu, 7 Mar 2013 12:25:19 -0600
+Subject: [PATCH] unw_is_signal_frame should return false/0 for bad addresses
+
+access_mem() could fail and return a non-zero value, which callers
+interpret as boolean true.
+
+Signed-off-by: Dave Lerner <dave.lerner@windriver.com>
+---
+ src/x86/Gos-linux.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/src/x86/Gos-linux.c b/src/x86/Gos-linux.c
+index 31f83ba..8bc24a8 100644
+--- a/src/x86/Gos-linux.c
++++ b/src/x86/Gos-linux.c
+@@ -57,10 +57,11 @@ unw_is_signal_frame (unw_cursor_t *cursor)
+      if SA_SIGINFO is specified.
+   */
+   ip = c->dwarf.ip;
+-  if ((ret = (*a->access_mem) (as, ip, &w0, 0, arg)) < 0
+-      || (ret = (*a->access_mem) (as, ip + 4, &w1, 0, arg)) < 0)
+-    return ret;
+-  ret = ((w0 == 0x0077b858 && w1 == 0x80cd0000)
++  if ((*a->access_mem) (as, ip, &w0, 0, arg) < 0
++      || (*a->access_mem) (as, ip + 4, &w1, 0, arg) < 0)
++    ret = 0;
++  else
++    ret = ((w0 == 0x0077b858 && w1 == 0x80cd0000)
+ 	 || (w0 == 0x0000adb8 && (w1 & 0xffffff) == 0x80cd00));
+   Debug (16, "returning %d\n", ret);
+   return ret;
+-- 
+1.7.2.5
+
