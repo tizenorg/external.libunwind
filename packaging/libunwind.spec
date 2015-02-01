@@ -19,7 +19,7 @@
 Name:           libunwind
 BuildRequires:  gcc-c++
 BuildRequires:  libtool
-BuildRequires:  pkgconfig
+BuildRequires:  pkg-config
 Url:            http://savannah.nongnu.org/projects/libunwind/
 Summary:        Unwind Library
 License:        MIT
@@ -38,7 +38,7 @@ Patch3:		fix_symlink.patch
 Patch4:		fix_builderror.patch
 Patch5:		fix_unwindinfo_free.patch
 Patch6:		disable_UNW_ARM_METHOD_FRAME.patch
-Patch7:		revert_unwind_table_search.patch
+
 
 %description
 A portable and efficient C programming interface (API) to determine the
@@ -76,7 +76,6 @@ cp %SOURCE1 .
 %patch4 -p1
 %patch5 -p1
 %patch6 -p1
-%patch7 -p1
 
 %build
 autoreconf -fi
@@ -97,8 +96,6 @@ mv $RPM_BUILD_ROOT%{_libdir}/libunwind.so.8* $RPM_BUILD_ROOT/%{_lib}
 ln -sf /%{_lib}/libunwind.so.8 $RPM_BUILD_ROOT%{_libdir}/libunwind.so
 # Check that ln did not create a dangling link
 stat "%buildroot"/$(readlink -f "%buildroot/%_libdir/libunwind.so");
-mkdir -p %{buildroot}/usr/share/license
-cp LICENSE %{buildroot}/usr/share/license/%{name}
 
 %post -p /sbin/ldconfig
 
@@ -107,7 +104,6 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}
 %files
 %defattr(-, root, root)
 %manifest %{name}.manifest
-/usr/share/license/%{name}
 /%_lib/lib*
 %{_libdir}/lib*.so.*
 %{_libdir}/libunwind.so
