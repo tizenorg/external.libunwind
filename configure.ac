@@ -37,7 +37,7 @@ dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(asm/ptrace_offsets.h endian.h sys/endian.h execinfo.h \
 		ia64intrin.h sys/uc_access.h unistd.h signal.h sys/types.h \
-		sys/procfs.h sys/ptrace.h byteswap.h)
+		sys/procfs.h sys/ptrace.h byteswap.h elf.h sys/elf.h link.h sys/link.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -104,11 +104,27 @@ SET_ARCH([$target_cpu],[target_arch])
 
 AC_ARG_ENABLE(coredump,
 	AS_HELP_STRING([--enable-coredump],[building libunwind-coredump library]),,
-        [AS_CASE([$host_arch], [arm*|mips*|sh*|x86*], [enable_coredump=yes], [enable_coredump=no])]
+        [AS_CASE([$host_arch], [aarch64*|arm*|mips*|sh*|x86*], [enable_coredump=yes], [enable_coredump=no])]
 )
 
 AC_MSG_CHECKING([if we should build libunwind-coredump])
 AC_MSG_RESULT([$enable_coredump])
+
+AC_ARG_ENABLE(ptrace,
+	AS_HELP_STRING([--enable-ptrace],[building libunwind-ptrace library]),,
+        [AC_CHECK_HEADER([sys/ptrace.h], [enable_ptrace=yes], [enable_ptrace=no])]
+)
+
+AC_MSG_CHECKING([if we should build libunwind-ptrace])
+AC_MSG_RESULT([$enable_ptrace])
+
+AC_ARG_ENABLE(setjmp,
+	AS_HELP_STRING([--enable-setjmp],[building libunwind-setjmp library]),,
+        [AS_IF([test x$target_arch == x$host_arch], [enable_setjmp=yes], [enable_setjmp=no])]
+)
+
+AC_MSG_CHECKING([if we should build libunwind-setjmp])
+AC_MSG_RESULT([$enable_setjmp])
 
 AC_MSG_CHECKING([for build architecture])
 AC_MSG_RESULT([$build_arch])
@@ -120,7 +136,10 @@ AC_MSG_CHECKING([for target operating system])
 AC_MSG_RESULT([$target_os])
 
 AM_CONDITIONAL(BUILD_COREDUMP, test x$enable_coredump = xyes)
+AM_CONDITIONAL(BUILD_PTRACE, test x$enable_ptrace = xyes)
+AM_CONDITIONAL(BUILD_SETJMP, test x$enable_setjmp = xyes)
 AM_CONDITIONAL(REMOTE_ONLY, test x$target_arch != x$host_arch)
+AM_CONDITIONAL(ARCH_AARCH64, test x$target_arch = xaarch64)
 AM_CONDITIONAL(ARCH_ARM, test x$target_arch = xarm)
 AM_CONDITIONAL(ARCH_IA64, test x$target_arch = xia64)
 AM_CONDITIONAL(ARCH_HPPA, test x$target_arch = xhppa)
@@ -133,11 +152,12 @@ AM_CONDITIONAL(ARCH_SH, test x$target_arch = xsh)
 AM_CONDITIONAL(OS_LINUX, expr x$target_os : xlinux >/dev/null)
 AM_CONDITIONAL(OS_HPUX, expr x$target_os : xhpux >/dev/null)
 AM_CONDITIONAL(OS_FREEBSD, expr x$target_os : xfreebsd >/dev/null)
+AM_CONDITIONAL(OS_QNX, expr x$target_os : xnto-qnx >/dev/null)
 
 AC_MSG_CHECKING([for ELF helper width])
 case "${target_arch}" in
 (arm|hppa|ppc32|x86|sh) use_elf32=yes; AC_MSG_RESULT([32]);;
-(ia64|ppc64|x86_64)    use_elf64=yes; AC_MSG_RESULT([64]);;
+(aarch64|ia64|ppc64|x86_64)    use_elf64=yes; AC_MSG_RESULT([64]);;
 (mips)                 use_elfxx=yes; AC_MSG_RESULT([xx]);;
 *)                     AC_MSG_ERROR([Unknown ELF target: ${target_arch}])
 esac
@@ -186,6 +206,7 @@ AS_HELP_STRING([--enable-cxx-exceptions],[use libunwind to handle C++ exceptions
 # C++ exception handling doesn't work too well on x86
 case $target_arch in
   x86*) enable_cxx_exceptions=no;;
+  aarch64*) enable_cxx_exceptions=no;;
   arm*) enable_cxx_exceptions=no;;
   mips*) enable_cxx_exceptions=no;;
   *) enable_cxx_exceptions=yes;;
@@ -234,19 +255,21 @@ if test x$enable_msabi_support = xyes; then
 fi
 AC_MSG_RESULT([$enable_msabi_support])
 
+LIBLZMA=
 AC_MSG_CHECKING([whether to support LZMA-compressed symbol tables])
 AC_ARG_ENABLE(minidebuginfo,
 AS_HELP_STRING([--enable-minidebuginfo], [Enables support for LZMA-compressed symbol tables]),, [enable_minidebuginfo=auto])
 AC_MSG_RESULT([$enable_minidebuginfo])
 if test x$enable_minidebuginfo != xno; then
    AC_CHECK_LIB([lzma], [lzma_mf_is_supported],
-   [AC_SUBST([LIBLZMA], [-lzma])
+   [LIBLZMA=-llzma
     AC_DEFINE([HAVE_LZMA], [1], [Define if you have liblzma])
     enable_minidebuginfo=yes],
    [if test x$enable_minidebuginfo = xyes; then
       AC_MSG_FAILURE([liblzma not found])
     fi])
 fi
+AC_SUBST([LIBLZMA])
 AM_CONDITIONAL(HAVE_LZMA, test x$enable_minidebuginfo = xyes)
 
 LIBUNWIND___THREAD
@@ -258,9 +281,12 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[#ifndef __INTEL_COMPILER
 
 if test x$GCC = xyes -a x$intel_compiler != xyes; then
   CFLAGS="${CFLAGS} -fexceptions -Wall -Wsign-compare"
-  LIBCRTS="-lgcc"
 fi
 AC_MSG_RESULT([$intel_compiler])
+
+AC_MSG_CHECKING([for QCC compiler])
+AS_CASE([$CC], [qcc*|QCC*], [qcc_compiler=yes], [qcc_compiler=no])
+AC_MSG_RESULT([$qcc_compiler])
 
 if test x$intel_compiler = xyes; then
   AC_MSG_CHECKING([if linker supports -static-libcxa])
@@ -274,6 +300,16 @@ if test x$intel_compiler = xyes; then
   AC_MSG_RESULT([$have_static_libcxa])
 fi
 
+if test x$qcc_compiler = xyes; then
+    LDFLAGS_NOSTARTFILES="-XCClinker -Wc,-nostartfiles"
+else
+    LDFLAGS_NOSTARTFILES="-XCClinker -nostartfiles"
+fi
+
+if test x$GCC = xyes -a x$intel_compiler != xyes -a x$qcc_compiler != xyes; then
+  LIBCRTS="-lgcc_s"
+fi
+
 AC_MSG_CHECKING([for __builtin___clear_cache])
 AC_LINK_IFELSE(
   [AC_LANG_PROGRAM([[]], [[__builtin___clear_cache(0, 0)]])],
@@ -284,6 +320,17 @@ if test x$have__builtin___clear_cache = xyes; then
             [Defined if __builtin___clear_cache() is available])
 fi
 AC_MSG_RESULT([$have__builtin___clear_cache])
+
+AC_MSG_CHECKING([for __builtin_unreachable])
+AC_LINK_IFELSE(
+  [AC_LANG_PROGRAM([[]], [[__builtin_unreachable()]])],
+  [have__builtin_unreachable=yes],
+  [have__builtin_unreachable=no])
+if test x$have__builtin_unreachable = xyes; then
+  AC_DEFINE([HAVE__BUILTIN_UNREACHABLE], [1],
+            [Defined if __builtin_unreachable() is available])
+fi
+AC_MSG_RESULT([$have__builtin_unreachable])
 
 AC_MSG_CHECKING([for __sync atomics])
 AC_LINK_IFELSE(
@@ -320,6 +367,7 @@ AC_SUBST(target_os)
 AC_SUBST(arch)
 AC_SUBST(ARCH)
 AC_SUBST(LDFLAGS_STATIC_LIBCXA)
+AC_SUBST(LDFLAGS_NOSTARTFILES)
 AC_SUBST(LIBCRTS)
 AC_SUBST(PKG_MAJOR)
 AC_SUBST(PKG_MINOR)

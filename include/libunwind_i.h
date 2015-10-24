@@ -56,7 +56,14 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <elf.h>
+
+#if defined(HAVE_ELF_H)
+# include <elf.h>
+#elif defined(HAVE_SYS_ELF_H)
+# include <sys/elf.h>
+#else
+# error Could not locate <elf.h>
+#endif
 
 #if defined(HAVE_ENDIAN_H)
 # include <endian.h>
@@ -67,9 +74,23 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 # define __BIG_ENDIAN		4321
 # if defined(__hpux)
 #   define __BYTE_ORDER __BIG_ENDIAN
+# elif defined(__QNX__)
+#   if defined(__BIGENDIAN__)
+#     define __BYTE_ORDER __BIG_ENDIAN
+#   elif defined(__LITTLEENDIAN__)
+#     define __BYTE_ORDER __LITTLE_ENDIAN
+#   else
+#     error Host has unknown byte-order.
+#   endif
 # else
 #   error Host has unknown byte-order.
 # endif
+#endif
+
+#if defined(HAVE__BUILTIN_UNREACHABLE)
+# define unreachable() __builtin_unreachable()
+#else
+# define unreachable() do { } while (1)
 #endif
 
 #ifdef DEBUG
@@ -165,8 +186,15 @@ static inline void mark_as_used(void *v UNUSED) {
 # define SIGPROCMASK(how, new_mask, old_mask) mark_as_used(old_mask)
 #endif
 
+/* Prefer adaptive mutexes if available */
+#ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
+#define UNW_PTHREAD_MUTEX_INITIALIZER PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
+#else
+#define UNW_PTHREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+#endif
+
 #define define_lock(name) \
-  pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
+  pthread_mutex_t name = UNW_PTHREAD_MUTEX_INITIALIZER
 #define lock_init(l)		mutex_init (l)
 #define lock_acquire(l,m)				\
 do {							\
@@ -246,10 +274,6 @@ do {									\
     }									\
 } while (0)
 # define Dprintf(format...) 	    fprintf (stderr, format)
-# ifdef __GNUC__
-#  undef inline
-#  define inline	UNUSED
-# endif
 #else
 # define Debug(level,format...)
 # define Dprintf(format...)
@@ -321,6 +345,11 @@ static inline void invalidate_edi (struct elf_dyn_info *edi)
 
 #ifndef tdep_get_func_addr
 # define tdep_get_func_addr(as,addr,v)		(*(v) = addr, 0)
+#endif
+
+#ifndef DWARF_VAL_LOC
+# define DWARF_IS_VAL_LOC(l)	0
+# define DWARF_VAL_LOC(c,v)	DWARF_NULL_LOC
 #endif
 
 #define UNW_ALIGN(x,a) (((x)+(a)-1UL)&~((a)-1UL))

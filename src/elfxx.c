@@ -128,10 +128,11 @@ elf_w (lookup_symbol) (unw_addr_space_t as,
 	      if (ELF_W (ST_TYPE) (sym->st_info) == STT_FUNC
 		  && sym->st_shndx != SHN_UNDEF)
 		{
-		  if (tdep_get_func_addr (as, sym->st_value, &val) < 0)
-		    continue;
+		  val = sym->st_value;
 		  if (sym->st_shndx != SHN_ABS)
 		    val += load_offset;
+		  if (tdep_get_func_addr (as, val, &val) < 0)
+		    continue;
 		  Debug (16, "0x%016lx info=0x%02x %s\n",
 			 (long) val, sym->st_info, strtab + sym->st_name);
 
@@ -318,11 +319,8 @@ elf_w (get_proc_name_in_image) (unw_addr_space_t as, struct elf_image *ei,
   struct elf_image mdi;
   if (elf_w (extract_minidebuginfo) (ei, &mdi))
     {
-      int ret_mdi;
-
-      load_offset = elf_w (get_load_offset) (&mdi, segbase, mapoff);
-      ret_mdi = elf_w (lookup_symbol) (as, ip, &mdi, load_offset, buf,
-				       buf_len, &min_dist);
+      int ret_mdi = elf_w (lookup_symbol) (as, ip, &mdi, load_offset, buf,
+					   buf_len, &min_dist);
 
       /* Closer symbol was found (possibly truncated). */
       if (ret_mdi == 0 || ret_mdi == -UNW_ENOMEM)

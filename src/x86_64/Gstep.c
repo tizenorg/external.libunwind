@@ -173,7 +173,7 @@ unw_step (unw_cursor_t *cursor)
 		 anything about new RBP (rbp1) since it may not be a frame
 		 pointer in the frame above.  Just check we get the value. */
               if (ret < 0
-		  || rbp <= c->dwarf.cfa
+		  || rbp < c->dwarf.cfa
 		  || (rbp - c->dwarf.cfa) > 0x4000)
 	        {
                   rip_loc = DWARF_NULL_LOC;
@@ -194,6 +194,7 @@ unw_step (unw_cursor_t *cursor)
           c->dwarf.loc[RBP] = rbp_loc;
           c->dwarf.loc[RSP] = rsp_loc;
           c->dwarf.loc[RIP] = rip_loc;
+          c->dwarf.use_prev_instr = 1;
 	}
 
       c->dwarf.ret_addr_column = RIP;

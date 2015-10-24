@@ -1,8 +1,7 @@
 /* libunwind - a platform-independent unwind library
-   Copyright (C) 2006-2007 IBM
-   Contributed by
-     Corey Ashford <cjashfor@us.ibm.com>
-     Jose Flavio Aguilar Paulino <jflavio@br.ibm.com> <joseflavio@gmail.com>
+   Copyright (C) 2008 CodeSourcery
+   Copyright (C) 2012 Tommi Rantala <tt.rantala@gmail.com>
+   Copyright (C) 2013 Linaro Limited
 
 This file is part of libunwind.
 
@@ -25,32 +24,29 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 
-#include <stdlib.h>
+#ifndef dwarf_config_h
+#define dwarf_config_h
 
-#include <libunwind_i.h>
+/* This matches the value udes by GCC (see
+   gcc/config/aarch64/aarch64.h:DWARF_FRAME_REGISTERS.  */
+#define DWARF_NUM_PRESERVED_REGS	97
 
-PROTECTED unw_addr_space_t
-unw_create_addr_space (unw_accessors_t *a, int byte_order)
-{
-#ifdef UNW_LOCAL_ONLY
-  return NULL;
-#else
-  unw_addr_space_t as;
+/* Return TRUE if the ADDR_SPACE uses big-endian byte-order.  */
+#define dwarf_is_big_endian(addr_space)	0
 
-  /*
-   * Linux ppc64 supports only big-endian.
-   */
-  if (byte_order != 0 && byte_order != __BIG_ENDIAN)
-    return NULL;
+#define dwarf_to_unw_regnum(reg) (((reg) <= UNW_AARCH64_V31) ? (reg) : 0)
 
-  as = malloc (sizeof (*as));
-  if (!as)
-    return NULL;
+/* Convert a pointer to a dwarf_cursor structure to a pointer to
+   unw_cursor_t.  */
+#define dwarf_to_cursor(c)	((unw_cursor_t *) (c))
 
-  memset (as, 0, sizeof (*as));
-
-  as->acc = *a;
-
-  return as;
+typedef struct dwarf_loc
+  {
+    unw_word_t val;
+#ifndef UNW_LOCAL_ONLY
+    unw_word_t type;		/* see DWARF_LOC_TYPE_* macros.  */
 #endif
-}
+  }
+dwarf_loc_t;
+
+#endif /* dwarf_config_h */
